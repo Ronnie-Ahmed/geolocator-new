@@ -136,7 +136,9 @@ async fn get_ip_location() -> Result<(f64, f64), Error> {
 
 
 pub async fn get_geo_location() -> Result<(f64, f64), Error> {
-    // Scan nearby Wi-Fi networks using nmcli
+
+    let geo_api = std::env::var("GEO_API")?;
+
     let output = Command::new("nmcli")
         .args(&["-t", "-f", "SSID,BSSID,SIGNAL", "dev", "wifi"])
         .output()?;
@@ -164,38 +166,26 @@ pub async fn get_geo_location() -> Result<(f64, f64), Error> {
         return Err(anyhow::anyhow!("No Wi-Fi networks found"));
     }
 
-    // Prepare request to your server
     let geo_request = GeoRequest {
         considerIp: true,
         wifiAccessPoints: wifi_list,
     };
 
-    // let url = "https://gpsproxy.taila87663.ts.net/geo"; // your server endpoint
-    // let client = Client::new();
-
-    let url = "http://127.0.0.1:3000/geo"; // your server endpoint
+    let url = format!(
+        "https://www.googleapis.com/geolocation/v1/geolocate?key={}",
+        geo_api
+    );
     let client = Client::new();
-
-
-
-    // Use the correct response type: LocationResponse
-    #[derive(serde::Deserialize)]
-    struct LocationResponse {
-        lat: f64,
-        lon: f64,
-    }
-
-    let resp: LocationResponse = client
-        .post(url)
-        .json(&geo_request)  // send Wi-Fi scan info to your server
+    let resp: GoogleGeoResponse = client
+        .post(&url)
+        .json(&geo_request)
         .send()
         .await?
         .json()
         .await?;
 
-    Ok((resp.lat, resp.lon))
+    Ok((resp.location.lat, resp.location.lng))
 }
-
 
 #[tokio::main]
 async fn main() -> Result<()> {
